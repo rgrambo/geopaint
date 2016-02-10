@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory
+        android:title="Color Preferences">
+
+        <EditTextPreference
+            android:key="color_preference"
+            android:title="Color Preference"
+            android:summary="The color of the drawn line"
+            android:dialogTitle="Color Preference" />
+
+    </PreferenceCategory>
+</PreferenceScreen>
