@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="edu.uw.rgrambo.geopaint">
+    package="edu.uw.rgrambo.geopaint"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!--
          The ACCESS_COARSE/FINE_LOCATION permissions are not required to use
@@ -8,6 +9,9 @@
          location permissions for the 'MyLocation' functionality. 
     -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+    <uses-sdk tools:overrideLibrary="com.pes.androidmaterialcolorpickerdialog" />
 
     <application
         android:allowBackup="true"
@@ -37,7 +41,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".ColorPreferenceFragment"></activity>
     </application>
 
 </manifest>

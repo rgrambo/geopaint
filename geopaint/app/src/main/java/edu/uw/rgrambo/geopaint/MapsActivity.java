@@ -3,10 +3,15 @@ package edu.uw.rgrambo.geopaint;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
-import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 
@@ -20,13 +25,19 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 
+import com.pes.androidmaterialcolorpickerdialog.ColorPicker;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Set;
 import java.util.Stack;
 
-public class MapsActivity extends FragmentActivity implements
+public class MapsActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
         LocationListener, OnMapReadyCallback {
@@ -42,6 +53,9 @@ public class MapsActivity extends FragmentActivity implements
 
     private Stack<Polyline> mAllPolylines;
     private PolylineOptions mCurrentPolylineOptions;
+
+    private ColorPicker cp;
+
     private int mCurrentColor;
 
     @Override
@@ -50,15 +64,6 @@ public class MapsActivity extends FragmentActivity implements
         setContentView(R.layout.activity_maps);
 
         mPenDrawing = false;
-        ((Switch)findViewById(R.id.switchPen)).setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
-                    penDown();
-                } else {
-                    penUp();
-                }
-            }
-        });
 
         if (mGoogleApiClient == null) {
             mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -79,6 +84,45 @@ public class MapsActivity extends FragmentActivity implements
         mapFragment.getMapAsync(this);
 
         mAllPolylines = new Stack<>();
+
+        cp = new ColorPicker(MapsActivity.this, 0, 0, 0);
+
+        // Set the default color to white
+        mCurrentColor = R.color.colorPrimary;
+
+        Log.e("Tag", "Step 1");
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.colorButton:
+                colorPicker();
+                return true;
+            case R.id.saveButton:
+                saveLines();
+                return true;
+            case R.id.drawButton:
+                if (mPenDrawing) {
+                    findViewById(R.id.drawButton).setBackgroundColor(getResources().getColor(
+                            R.color.disabledButton));
+                    penUp();
+                } else {
+                    findViewById(R.id.drawButton).setBackgroundColor(getResources().getColor(
+                            R.color.enabledButton));
+                    penDown();
+                }
+            default:
+                return super.onOptionsItemSelected(item);
+        }
     }
 
     private void updateUI() {
@@ -91,12 +135,14 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     protected void startLocationUpdates() {
+        Log.e("Tag", "Step 2");
         if (ContextCompat.checkSelfPermission(this,
                 android.Manifest.permission.ACCESS_FINE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED) {
 
             LocationServices.FusedLocationApi.requestLocationUpdates(
                     mGoogleApiClient, mLocationRequest, this);
+            Log.e("Tag", "Step 2.5");
         }
     }
 
@@ -128,10 +174,58 @@ public class MapsActivity extends FragmentActivity implements
         penDown();
     }
 
-    public void colorPicker(View view) {
-        getFragmentManager().beginTransaction()
-                .replace(android.R.id.content, new ColorPreferenceFragment())
-                .addToBackStack(null).commit();
+    public void colorPicker() {
+        cp.show();
+
+        Button okColor = (Button)cp.findViewById(R.id.okColorButton);
+        okColor.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mCurrentColor = cp.getColor();
+
+                findViewById(R.id.colorButton).setBackgroundColor(mCurrentColor);
+
+                cp.dismiss();
+            }
+        });
+    }
+
+    // Design decision made to stop the current drawing
+    public void saveLines() {
+        penUp();
+
+        String result = "[";
+
+        Set<Polyline> lines = (Set<Polyline>) mAllPolylines.clone();
+
+        for (Polyline line : lines) {
+            result += "{ \"type\": \"LineString\", \"coordinates\": [";
+
+            boolean first = true;
+
+            for (LatLng latLng : line.getPoints()) {
+                if (!first) {
+                    result += ", ";
+                } else {
+                    first = false;
+                }
+
+                result += "[" + latLng.latitude + ", " + latLng.longitude + "]";
+            }
+
+            result += "}";
+        }
+
+        result += "]";
+
+        try {
+            File file = new File(this.getExternalFilesDir(null), "drawing.geojson");
+            FileOutputStream outputStream = new FileOutputStream(file);
+            outputStream.write(result.getBytes()); //write the string to the file
+            outputStream.close(); //close the stream
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -167,6 +261,7 @@ public class MapsActivity extends FragmentActivity implements
 
     @Override
     public void onLocationChanged(Location location) {
+        Log.e("Tag", "Step 3");
         mCurrentLocation = location;
         if (mPenDrawing) {
             mCurrentPolylineOptions.add(new LatLng(

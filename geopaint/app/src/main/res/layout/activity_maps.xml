@@ -2,7 +2,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MapsActivity" >
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:context=".MapsActivity">
 
     <fragment xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:map="http://schemas.android.com/apk/res-auto"
@@ -13,27 +14,4 @@
         android:layout_height="match_parent"
         tools:context="edu.uw.rgrambo.geopaint.MapsActivity" />
 
-
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#CCFFFFFF">
-
-        <Switch
-            android:id="@+id/switchPen"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/switchDrawingText"
-            android:layout_alignParentEnd="true"
-            android:layout_alignParentRight="true"/>
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:onClick="colorPicker"
-            android:background="#FF0000"
-            android:layout_alignParentStart="true"
-            android:layout_alignParentLeft="true"/>
-
-    </RelativeLayout>
 </FrameLayout>
