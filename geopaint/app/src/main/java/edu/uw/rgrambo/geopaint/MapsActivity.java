@@ -1,25 +1,24 @@
 package edu.uw.rgrambo.geopaint;
 
+import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
-import android.widget.CompoundButton;
-import android.widget.Switch;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -33,8 +32,6 @@ import com.pes.androidmaterialcolorpickerdialog.ColorPicker;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.Set;
 import java.util.Stack;
 
 public class MapsActivity extends AppCompatActivity implements
@@ -57,6 +54,8 @@ public class MapsActivity extends AppCompatActivity implements
     private ColorPicker cp;
 
     private int mCurrentColor;
+
+    private String saveFile;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,8 +88,6 @@ public class MapsActivity extends AppCompatActivity implements
 
         // Set the default color to white
         mCurrentColor = R.color.colorPrimary;
-
-        Log.e("Tag", "Step 1");
     }
 
     @Override
@@ -120,29 +117,42 @@ public class MapsActivity extends AppCompatActivity implements
                             R.color.enabledButton));
                     penDown();
                 }
+            case R.id.action_share:
+                if (saveFile != null) {
+                    Intent sendIntent = new Intent();
+                    sendIntent.setAction(Intent.ACTION_SEND);
+                    sendIntent.putExtra(Intent.EXTRA_STREAM, Uri.parse(saveFile));
+                    sendIntent.setType("text/plain");
+                    startActivity(sendIntent);
+                }
             default:
                 return super.onOptionsItemSelected(item);
         }
     }
 
     private void updateUI() {
-        if (mAllPolylines.peek() != null)
+        if (!mAllPolylines.isEmpty())
         {
+            // Remove the old one from the stack and the UI
             mAllPolylines.pop().remove();
         }
 
+        // Add new line to stack and UI
         mAllPolylines.push(mMap.addPolyline(mCurrentPolylineOptions));
     }
 
     protected void startLocationUpdates() {
-        Log.e("Tag", "Step 2");
         if (ContextCompat.checkSelfPermission(this,
                 android.Manifest.permission.ACCESS_FINE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED) {
 
+            Location location = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+            LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+            CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(latLng, 14);
+            mMap.moveCamera(cameraUpdate);
+
             LocationServices.FusedLocationApi.requestLocationUpdates(
                     mGoogleApiClient, mLocationRequest, this);
-            Log.e("Tag", "Step 2.5");
         }
     }
 
@@ -163,15 +173,11 @@ public class MapsActivity extends AppCompatActivity implements
         if (!mPenDrawing) {
             mPenDrawing = true;
             mCurrentPolylineOptions = new PolylineOptions()
-                .width(5)
+                .width(20)
                 .color(mCurrentColor);
-        }
-    }
 
-    public void penColorChange(String hex) {
-        penUp();
-        mCurrentColor = Color.parseColor(hex);
-        penDown();
+            mAllPolylines.push(mMap.addPolyline(mCurrentPolylineOptions));
+        }
     }
 
     public void colorPicker() {
@@ -183,7 +189,19 @@ public class MapsActivity extends AppCompatActivity implements
             public void onClick(View v) {
                 mCurrentColor = cp.getColor();
 
+                boolean wasDrawing = mPenDrawing;
+
+                if (wasDrawing) {
+                    penUp();
+                }
+
                 findViewById(R.id.colorButton).setBackgroundColor(mCurrentColor);
+
+                mCurrentPolylineOptions.color(mCurrentColor);
+
+                if (wasDrawing) {
+                    penDown();
+                }
 
                 cp.dismiss();
             }
@@ -194,11 +212,19 @@ public class MapsActivity extends AppCompatActivity implements
     public void saveLines() {
         penUp();
 
-        String result = "[";
+        String result = "{ \"type\": \"GeometryCollection\", \"geometries\": [";
 
-        Set<Polyline> lines = (Set<Polyline>) mAllPolylines.clone();
+        Stack<Polyline> lines = (Stack<Polyline>) mAllPolylines.clone();
+
+        boolean firstLine = true;
 
         for (Polyline line : lines) {
+            if (!firstLine) {
+                result += ", ";
+            } else {
+                firstLine = false;
+            }
+
             result += "{ \"type\": \"LineString\", \"coordinates\": [";
 
             boolean first = true;
@@ -210,19 +236,20 @@ public class MapsActivity extends AppCompatActivity implements
                     first = false;
                 }
 
-                result += "[" + latLng.latitude + ", " + latLng.longitude + "]";
+                result += "[" + latLng.longitude + ", " + latLng.latitude + "]";
             }
 
-            result += "}";
+            result += "]}";
         }
 
-        result += "]";
+        result += "]}";
 
         try {
             File file = new File(this.getExternalFilesDir(null), "drawing.geojson");
             FileOutputStream outputStream = new FileOutputStream(file);
             outputStream.write(result.getBytes()); //write the string to the file
             outputStream.close(); //close the stream
+            saveFile = file.getPath();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -240,6 +267,8 @@ public class MapsActivity extends AppCompatActivity implements
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+
+        mMap.setMyLocationEnabled(true);
 
         if (ContextCompat.checkSelfPermission(this,
                 android.Manifest.permission.ACCESS_FINE_LOCATION) ==
@@ -261,7 +290,6 @@ public class MapsActivity extends AppCompatActivity implements
 
     @Override
     public void onLocationChanged(Location location) {
-        Log.e("Tag", "Step 3");
         mCurrentLocation = location;
         if (mPenDrawing) {
             mCurrentPolylineOptions.add(new LatLng(
