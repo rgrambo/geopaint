@@ -1,5 +1,3 @@
-![image](https://s27.postimg.org/861y2gtbn/geo-paint.png)
-
 # Geo Paint
 An app that uses the user's position to draw an image along the map, depending on where the user moves. This app allows for starting and stopping of the functionality, and allows the user to change the color of the line they are drawing.
 
